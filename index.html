@@ -10,20 +10,21 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
     <style>
         :root { --dark: #0D294D; --accent: #39CAB9; --white: #FEFFFF; --radius: 22px; }
-        body { font-family: -apple-system, sans-serif; background: var(--dark); color: var(--white); margin: 0; padding-bottom: 110px; }
+        body { font-family: -apple-system, sans-serif; background: var(--dark); color: var(--white); margin: 0; padding-bottom: 110px; overflow-x: hidden; }
         .status-header { background: linear-gradient(180deg, #16365f 0%, #0D294D 100%); padding: 30px 20px; text-align: center; border-bottom: 1px solid rgba(57, 202, 185, 0.3); }
         .status-val { font-size: 32px; font-weight: 900; color: var(--accent); margin: 5px 0; }
         .card { background: rgba(254,255,255,0.08); margin: 12px 16px; padding: 18px; border-radius: var(--radius); border: 1px solid rgba(254,255,255,0.1); }
         .nav-bar { position: fixed; bottom: 0; width: 100%; background: rgba(13,41,77,0.95); display: flex; padding: 12px 0 25px; border-top: 1px solid rgba(254,255,255,0.1); backdrop-filter: blur(15px); z-index: 1000; }
         .nav-item { flex: 1; text-align: center; color: rgba(254,255,255,0.4); font-size: 11px; }
         .nav-item.active { color: var(--accent); }
-        .add-fab { position: fixed; bottom: 95px; right: 20px; width: 60px; height: 60px; background: var(--accent); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--dark); z-index: 999; }
-        .input-field { width: 100%; background: rgba(254,255,255,0.1); border: 1px solid rgba(255,255,255,0.1); padding: 14px; border-radius: 12px; color: white; margin-bottom: 12px; box-sizing: border-box; }
+        .add-fab { position: fixed; bottom: 95px; right: 20px; width: 60px; height: 60px; background: var(--accent); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--dark); z-index: 999; box-shadow: 0 8px 20px rgba(0,0,0,0.3); }
+        .input-field { width: 100%; background: rgba(254,255,255,0.1); border: 1px solid rgba(255,255,255,0.1); padding: 14px; border-radius: 12px; color: white; margin-bottom: 12px; box-sizing: border-box; font-size: 16px; }
         .modal-sheet { position: fixed; bottom: 0; width: 100%; background: var(--dark); border-radius: 30px 30px 0 0; padding: 25px; transform: translateY(100%); transition: 0.3s; z-index: 2000; box-sizing: border-box; border-top: 2px solid var(--accent); }
         .modal-sheet.active { transform: translateY(0); }
-        .btn-main { background: var(--accent); color: var(--dark); border: none; padding: 16px; border-radius: 16px; font-weight: 800; width: 100%; }
-        .currency-tag { font-size: 10px; padding: 2px 6px; border-radius: 6px; border: 1px solid; }
-        .eur { color: var(--accent); } .pln { color: #FFD700; }
+        .btn-main { background: var(--accent); color: var(--dark); border: none; padding: 16px; border-radius: 16px; font-weight: 800; width: 100%; font-size: 16px; }
+        .currency-tag { font-size: 10px; padding: 2px 6px; border-radius: 6px; border: 1px solid; margin-left: 5px;}
+        .eur { color: var(--accent); border-color: var(--accent); } .pln { color: #FFD700; border-color: #FFD700; }
+        @media print { .nav-bar, .add-fab, #overlay, #btnPDF { display: none !important; } .card { background: white !important; color: black !important; border: 1px solid #ccc !important; } body { background: white; color: black; } }
     </style>
 </head>
 <body>
@@ -50,13 +51,13 @@
 
 <script>
     const TG = window.Telegram.WebApp;
-    const SHEET_URL = "https://script.google.com/macros/s/AKfycbxysLIog97MsNLpPF39R07t5d16_W3neJ2Ryyj-asSiPpZZmrNk-OePFYan6uh0uYha/exec";
-    let currentTab = 'cadences', dataCache = { cadences: [], expenses: [], categories: [] }, exchangeRate = 4.35, editId = null, selectedCadenceId = null;
+    const SHEET_URL = "https://script.google.com/macros/s/AKfycbxDvJKxiqPZ9OBjkN9aogCxelvcgmp0MehrV4hZkduWbb-NwrA40tsAWMrRa4VZ8EcTsQ/exec"; // ВСТАВИТЬ СЮДА
+    let currentTab = 'cadences', dataCache = { cadences: [], expenses: [], categories: [] }, exchangeRate = 4.35, selectedCadenceId = null;
 
     function init() {
         TG.expand();
         const local = localStorage.getItem('truck_data');
-        if (local) { dataCache = JSON.parse(local); render(); }
+        if (local) { dataCache = JSON.parse(local); exchangeRate = dataCache.rate || 4.35; render(); }
         loadData();
     }
 
@@ -67,7 +68,7 @@
             exchangeRate = dataCache.rate;
             localStorage.setItem('truck_data', JSON.stringify(dataCache));
             render();
-        } catch (e) { console.error(e); }
+        } catch (e) { console.error("Sync error"); }
         lucide.createIcons();
     }
 
@@ -112,7 +113,6 @@
                 </div>
                 <div style="margin-top:12px; display:flex; gap:10px;">
                     <button onclick="viewCadenceExpenses('${id}')" style="background:rgba(57,202,185,0.1); color:var(--accent); border:1px solid var(--accent); padding:8px; border-radius:10px; flex:1; font-weight:bold; font-size:12px;">Расходы рейса</button>
-                    <button onclick="editCadence('${id}')" style="background:none; border:none; color:white; opacity:0.3"><i data-lucide="edit-3"></i></button>
                     <button onclick="deleteRow('cadences', '${id}')" style="background:none; border:none; color:#ff4444; opacity:0.4"><i data-lucide="trash-2"></i></button>
                 </div>
             </div>`;
@@ -156,14 +156,22 @@
 
         cont.innerHTML = `
             <div class="card animate__animated animate__fadeIn">
-                <h3 style="margin-top:0">Категории расходов</h3>
-                <div style="margin-bottom:15px">${catHtml}</div>
+                <h3 style="margin:0 0 15px 0">Курс валют</h3>
+                <div style="display:flex; gap:10px; align-items:center; margin-bottom:15px">
+                    <div style="font-weight:bold">1 EUR =</div>
+                    <input type="number" id="manualRate" class="input-field" value="${exchangeRate}" style="margin:0; flex:1" inputmode="decimal">
+                    <div style="font-weight:bold">PLN</div>
+                </div>
+                <button class="btn-main" onclick="updateRate()" style="padding:10px; font-size:14px">Сохранить курс</button>
+            </div>
+            <div class="card animate__animated animate__fadeIn">
+                <h3 style="margin:0 0 15px 0">Категории</h3>
+                <div style="margin-bottom:15px; max-height:150px; overflow-y:auto">${catHtml}</div>
                 <div style="display:flex; gap:10px">
-                    <input type="text" id="newCatName" class="input-field" placeholder="Название..." style="margin-bottom:0">
+                    <input type="text" id="newCatName" class="input-field" placeholder="Название..." style="margin:0">
                     <button onclick="addCategory()" style="background:var(--accent); border:none; border-radius:12px; padding:0 15px; color:var(--dark)"><i data-lucide="plus"></i></button>
                 </div>
             </div>
-            <div style="text-align:center; opacity:0.3; font-size:12px; margin-top:20px">Курс PKO: 1 EUR = ${exchangeRate} PLN</div>
         `;
     }
 
@@ -171,34 +179,34 @@
         document.getElementById('overlay').style.display = 'block';
         const content = document.getElementById('modalContent');
         if (currentTab === 'cadences') {
-            content.innerHTML = `<h3>Рейс</h3><input type="date" id="dStart" class="input-field"><input type="date" id="dEnd" class="input-field"><button class="btn-main" onclick="saveCadence()">Сохранить</button>`;
+            content.innerHTML = `<h3>Рейс</h3><input type="date" id="dStart" class="input-field"><input type="date" id="dEnd" class="input-field"><button class="btn-main" onclick="saveCadence()">Добавить</button>`;
         } else {
             let catOptions = dataCache.categories.map(c => `<option>${c.Name}</option>`).join('');
-            content.innerHTML = `<h3>Расход</h3><input type="date" id="exDate" class="input-field"><input type="number" id="exAmt" class="input-field" placeholder="Сумма"><select id="exCurr" class="input-field"><option value="EUR">EUR</option><option value="PLN">PLN</option></select><select id="exCat" class="input-field">${catOptions}</select><button class="btn-main" onclick="saveExpense()">Сохранить</button>`;
+            content.innerHTML = `<h3>Расход</h3><input type="date" id="exDate" class="input-field"><input type="number" id="exAmt" class="input-field" placeholder="Сумма" inputmode="decimal"><select id="exCurr" class="input-field"><option value="EUR">EUR</option><option value="PLN">PLN</option></select><select id="exCat" class="input-field">${catOptions}</select><button class="btn-main" onclick="saveExpense()">Сохранить</button>`;
         }
         document.getElementById('modal').classList.add('active');
     }
 
+    async function updateRate() {
+        const rate = document.getElementById('manualRate').value;
+        await sendData({ action: 'updateRate', rate: parseFloat(rate) });
+        alert("Курс обновлен!");
+    }
+
     async function addCategory() {
         const name = document.getElementById('newCatName').value;
-        if (!name) return;
-        await sendData({ action: 'addCategory', tab: 'categories', name: name });
+        if (name) await sendData({ action: 'addCategory', name: name });
     }
 
     async function sendData(p) {
         closeModal();
+        if(TG.HapticFeedback) TG.HapticFeedback.notificationOccurred('success');
         await fetch(SHEET_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(p) });
         loadData();
     }
 
-    async function deleteRow(tab, id) {
-        if(!confirm('Удалить?')) return;
-        await fetch(SHEET_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'delete', tab, id }) });
-        loadData();
-    }
-
     function switchTab(tab, el) {
-        currentTab = tab; editId = null; selectedCadenceId = null;
+        currentTab = tab; selectedCadenceId = null;
         document.getElementById('pageTitle').textContent = tab==='cadences'?'Рейсы':tab==='expenses'?'Бюджет':'Настройки';
         document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
         el.classList.add('active');
@@ -209,7 +217,7 @@
     function saveCadence() { sendData({ action: 'addCadence', start: document.getElementById('dStart').value, end: document.getElementById('dEnd').value }); }
     function saveExpense() { sendData({ action: 'addExpense', date: document.getElementById('exDate').value, amount: document.getElementById('exAmt').value, currency: document.getElementById('exCurr').value, category: document.getElementById('exCat').value, cadenceId: selectedCadenceId }); }
     function viewCadenceExpenses(id) { selectedCadenceId = id.toString(); switchTab('expenses', document.querySelectorAll('.nav-item')[1]); }
-    function editCadence(id) { editId = id; openModal(); }
+    async function deleteRow(tab, id) { if(confirm('Удалить?')) { await fetch(SHEET_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'delete', tab, id }) }); loadData(); } }
 
     init();
 </script>
