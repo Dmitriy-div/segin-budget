@@ -113,6 +113,8 @@
                 const amt = parseFloat(ex.Amount || 0);
                 return s + (ex.Currency === 'PLN' ? amt / exchangeRate : amt);
             }, 0);
+            
+            // Чистый доход теперь с точностью до 2 знаков
             const net = forecast - expSum;
 
             html += `
@@ -129,8 +131,8 @@
                 </div>
 
                 <div class="detail-row">
-                    <div><span style="opacity:0.5">Диета:</span> <b>${forecast}€</b></div>
-                    <div style="text-align:right"><span style="opacity:0.5">Траты:</span> <b style="color:#FFD700">-${expSum.toFixed(0)}€</b></div>
+                    <div><span style="opacity:0.5">Диета:</span> <b>${forecast.toFixed(2)}€</b></div>
+                    <div style="text-align:right"><span style="opacity:0.5">Траты:</span> <b style="color:#FFD700">-${expSum.toFixed(2)}€</b></div>
                 </div>
 
                 <div style="margin-top:12px; display:flex; gap:10px;">
@@ -261,4 +263,5 @@
 </script>
 </body>
 </html>
+
 
