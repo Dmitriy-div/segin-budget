@@ -23,6 +23,7 @@
         .btn-main { background: var(--accent); color: var(--dark); border: none; padding: 16px; border-radius: 16px; font-weight: 800; width: 100%; cursor: pointer; }
         .currency-tag { font-size: 10px; padding: 2px 6px; border-radius: 6px; border: 1px solid; margin-left: 5px; }
         .eur { color: var(--accent); border-color: var(--accent); } .pln { color: #FFD700; border-color: #FFD700; }
+        .detail-row { display: flex; justify-content: space-between; margin-top: 12px; background: rgba(255,255,255,0.03); padding: 10px; border-radius: 12px; font-size: 13px; }
     </style>
 </head>
 <body>
@@ -60,7 +61,7 @@
         try {
             const res = await fetch(`${SHEET_URL}?action=get_all`);
             dataCache = await res.json();
-            exchangeRate = dataCache.rate;
+            exchangeRate = dataCache.rate || 4.35;
             render();
         } catch (e) { console.error(e); }
         lucide.createIcons();
@@ -76,7 +77,7 @@
             filterInd.innerHTML = "";
             renderCadences(cont);
         } else if (currentTab === 'expenses') {
-            filterInd.innerHTML = selectedCadenceId ? "Фильтр: рейс <span onclick='clearFilter()' style='color:#ff4444'>[X]</span>" : "Все расходы";
+            filterInd.innerHTML = selectedCadenceId ? "Рейс <span onclick='clearFilter()' style='color:#ff4444'>[X]</span>" : "Весь период";
             renderExpenses(cont);
         } else {
             filterInd.innerHTML = "";
@@ -101,25 +102,41 @@
         let html = '';
         dataCache.cadences.forEach(c => {
             const id = (c.ID || c.id || "").toString();
-            const days = Math.max(0, Math.ceil((new Date(c.EndDate || c.end) - new Date(c.StartDate || c.start)) / 86400000));
+            const start = c.StartDate || c.start;
+            const end = c.EndDate || c.end;
+            const days = Math.max(0, Math.ceil((new Date(end) - new Date(start)) / 86400000));
+            
+            // Расчеты
             const forecast = days * 95;
             const relExp = dataCache.expenses.filter(ex => (ex.CadenceID || ex.cadenceId || "").toString() === id);
-            const expSum = relExp.reduce((s, ex) => s + (ex.Currency === 'PLN' ? parseFloat(ex.Amount)/exchangeRate : parseFloat(ex.Amount)), 0);
+            const expSum = relExp.reduce((s, ex) => {
+                const amt = parseFloat(ex.Amount || 0);
+                return s + (ex.Currency === 'PLN' ? amt / exchangeRate : amt);
+            }, 0);
             const net = forecast - expSum;
 
-            html += `<div class="card">
-                <div style="display:flex; justify-content:space-between">
-                    <div><b>${c.StartDate || c.start}</b> — <b>${c.EndDate || c.end}</b></div>
-                    <div style="text-align:right; color:var(--accent); font-weight:900">${Math.round(net)} €</div>
+            html += `
+            <div class="card">
+                <div style="display:flex; justify-content:space-between; align-items: flex-start;">
+                    <div>
+                        <div style="font-size:11px; opacity:0.5">${start} — ${end}</div>
+                        <div style="background:var(--accent); color:var(--dark); padding:2px 8px; border-radius:6px; display:inline-block; margin-top:5px; font-weight:800; font-size:12px;">${days} дн.</div>
+                    </div>
+                    <div style="text-align:right">
+                        <div style="font-size:10px; opacity:0.5">ЧИСТЫЙ ДОХОД</div>
+                        <div style="color:${net >= 0 ? 'var(--accent)' : '#ff4444'}; font-size:22px; font-weight:900">${Math.round(net)} €</div>
+                    </div>
                 </div>
-                <div style="display:flex; gap:10px; margin-top:10px; font-size:12px; opacity:0.7">
-                    <div>Прогноз: ${forecast}€</div>
-                    <div>Расходы: -${expSum.toFixed(1)}€</div>
+
+                <div class="detail-row">
+                    <div><span style="opacity:0.5">Диета:</span> <b>${forecast}€</b></div>
+                    <div style="text-align:right"><span style="opacity:0.5">Траты:</span> <b style="color:#FFD700">-${expSum.toFixed(0)}€</b></div>
                 </div>
+
                 <div style="margin-top:12px; display:flex; gap:10px;">
-                    <button onclick="viewCadenceExpenses('${id}')" style="background:rgba(57,202,185,0.1); color:var(--accent); border:1px solid var(--accent); padding:8px; border-radius:10px; flex:1; font-size:11px;">Детали</button>
-                    <button onclick="editCadence('${id}')" style="background:none; border:none; color:white; opacity:0.3"><i data-lucide="edit-3" style="width:16px"></i></button>
-                    <button onclick="deleteRow('cadences', '${id}')" style="background:none; border:none; color:#ff4444; opacity:0.4"><i data-lucide="trash-2" style="width:16px"></i></button>
+                    <button onclick="viewCadenceExpenses('${id}')" style="background:rgba(57,202,185,0.1); color:var(--accent); border:1px solid var(--accent); padding:8px; border-radius:10px; flex:1; font-weight:bold; font-size:12px;">Детали трат</button>
+                    <button onclick="editCadence('${id}')" style="background:none; border:none; color:white; opacity:0.3"><i data-lucide="edit-3" style="width:18px"></i></button>
+                    <button onclick="deleteRow('cadences', '${id}')" style="background:none; border:none; color:#ff4444; opacity:0.4"><i data-lucide="trash-2" style="width:18px"></i></button>
                 </div>
             </div>`;
         });
@@ -129,7 +146,6 @@
     function renderExpenses(cont) {
         let filtered = selectedCadenceId ? dataCache.expenses.filter(ex => (ex.CadenceID || ex.cadenceId || "").toString() === selectedCadenceId) : dataCache.expenses;
         
-        // Подсчет итогов для графика
         let catTotals = filtered.reduce((acc, ex) => {
             const val = ex.Currency === 'PLN' ? parseFloat(ex.Amount)/exchangeRate : parseFloat(ex.Amount);
             acc[ex.Category] = (acc[ex.Category] || 0) + val;
@@ -149,8 +165,8 @@
                     <div style="text-align:right">
                         <b>${ex.Amount}</b> <span class="currency-tag ${ex.Currency.toLowerCase()}">${ex.Currency}</span>
                         <div style="margin-top:8px">
-                            <button onclick="editExpense('${exId}')" style="background:none; border:none; color:white; opacity:0.3; padding:5px"><i data-lucide="edit-3" style="width:14px"></i></button>
-                            <button onclick="deleteRow('expenses', '${exId}')" style="background:none; border:none; color:#ff4444; opacity:0.4; padding:5px"><i data-lucide="trash-2" style="width:14px"></i></button>
+                            <button onclick="editExpense('${exId}')" style="background:none; border:none; color:white; opacity:0.2; padding:5px"><i data-lucide="edit-3" style="width:14px"></i></button>
+                            <button onclick="deleteRow('expenses', '${exId}')" style="background:none; border:none; color:#ff4444; opacity:0.3; padding:5px"><i data-lucide="trash-2" style="width:14px"></i></button>
                         </div>
                     </div>
                 </div>
@@ -171,31 +187,42 @@
     }
 
     function renderSettings(cont) {
+        let catHtml = dataCache.categories.map(c => `
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.05)">
+                <span>${c.Name}</span>
+                <button onclick="deleteRow('categories', '${c.Name}')" style="background:none; border:none; color:#ff4444; font-size:12px">Удалить</button>
+            </div>
+        `).join('');
+
         cont.innerHTML = `
             <div class="card">
-                <h3>Курс: 1 EUR = <input type="number" id="manualRate" value="${exchangeRate}" step="0.01" style="width:60px; background:none; border:1px solid var(--accent); color:white; border-radius:5px; padding:5px"> PLN</h3>
-                <button class="btn-main" onclick="updateRate()" style="padding:10px">Сохранить курс</button>
+                <h3 style="margin-top:0">Курс: 1 EUR = <input type="number" id="manualRate" value="${exchangeRate}" step="0.01" style="width:60px; background:none; border:1px solid var(--accent); color:white; border-radius:5px; padding:5px"> PLN</h3>
+                <button class="btn-main" onclick="updateRate()" style="padding:10px; font-size:14px">Сохранить курс</button>
             </div>
             <div class="card">
-                <h3>Категории</h3>
-                <div id="catList">${dataCache.categories.map(c => `<div style="padding:8px 0; border-bottom:1px solid rgba(255,255,255,0.05)">${c.Name}</div>`).join('')}</div>
-                <div style="display:flex; gap:10px; margin-top:15px"><input id="newCatName" class="input-field" placeholder="Новая" style="margin:0"><button onclick="addCategory()" style="padding:0 20px; background:var(--accent); border:none; border-radius:12px;">+</button></div>
+                <h3 style="margin-top:0">Категории</h3>
+                <div style="margin-bottom:15px">${catHtml}</div>
+                <div style="display:flex; gap:10px">
+                    <input type="text" id="newCatName" class="input-field" placeholder="Новая..." style="margin:0">
+                    <button onclick="addCategory()" style="padding:0 20px; background:var(--accent); border:none; border-radius:12px; color:var(--dark); font-weight:bold">+</button>
+                </div>
             </div>`;
     }
 
+    // --- Функции управления ---
     function openModal() {
         document.getElementById('overlay').style.display = 'block';
         const content = document.getElementById('modalContent');
         if (currentTab === 'cadences') {
-            const c = editId ? dataCache.cadences.find(i => (i.ID||i.id) == editId) : null;
-            content.innerHTML = `<h3>Рейс</h3>
-                <input type="date" id="dStart" class="input-field" value="${c?c.StartDate||c.start:''}">
-                <input type="date" id="dEnd" class="input-field" value="${c?c.EndDate||c.end:''}">
+            const c = editId ? dataCache.cadences.find(i => (i.ID || i.id) == editId) : null;
+            content.innerHTML = `<h3>${editId ? 'Редактировать' : 'Новый'} рейс</h3>
+                <input type="date" id="dStart" class="input-field" value="${c ? (c.StartDate || c.start) : ''}">
+                <input type="date" id="dEnd" class="input-field" value="${c ? (c.EndDate || c.end) : ''}">
                 <button class="btn-main" onclick="saveCadence()">Сохранить</button>`;
         } else {
             const e = editId ? dataCache.expenses.find(i => (i.ID||i.id) == editId) : null;
             let catOptions = dataCache.categories.map(c => `<option ${e && e.Category==c.Name?'selected':''}>${c.Name}</option>`).join('');
-            content.innerHTML = `<h3>Расход</h3>
+            content.innerHTML = `<h3>${editId ? 'Редактировать' : 'Новый'} расход</h3>
                 <input type="date" id="exDate" class="input-field" value="${e?e.Date:''}">
                 <input type="number" id="exAmt" class="input-field" placeholder="Сумма" value="${e?e.Amount:''}">
                 <select id="exCurr" class="input-field"><option value="EUR" ${e && e.Currency=='EUR'?'selected':''}>EUR</option><option value="PLN" ${e && e.Currency=='PLN'?'selected':''}>PLN</option></select>
@@ -214,9 +241,9 @@
     function saveExpense() { sendData({ action: editId ? 'editExpense' : 'addExpense', id: editId, date: document.getElementById('exDate').value, amount: document.getElementById('exAmt').value, currency: document.getElementById('exCurr').value, category: document.getElementById('exCat').value, cadenceId: selectedCadenceId }); }
     
     async function updateRate() { await sendData({ action: 'updateRate', rate: parseFloat(document.getElementById('manualRate').value) }); }
-    async function addCategory() { await sendData({ action: 'addCategory', name: document.getElementById('newCatName').value }); }
+    async function addCategory() { const n = document.getElementById('newCatName').value; if(n) await sendData({ action: 'addCategory', name: n }); }
 
-    function viewCadenceExpenses(id) { selectedCadenceId = id; switchTab('expenses', document.getElementById('nav-expenses')); }
+    function viewCadenceExpenses(id) { selectedCadenceId = id.toString(); switchTab('expenses', document.getElementById('nav-expenses')); }
     function clearFilter() { selectedCadenceId = null; render(); }
 
     function switchTab(tab, el) { 
