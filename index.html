@@ -9,21 +9,38 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         :root { --dark: #0D294D; --accent: #39CAB9; --white: #FEFFFF; --radius: 22px; }
-        body { font-family: -apple-system, sans-serif; background: var(--dark); color: var(--white); margin: 0; padding-bottom: 110px; }
+        body { font-family: -apple-system, sans-serif; background: var(--dark); color: var(--white); margin: 0; padding-bottom: 110px; overflow-x: hidden; }
+        
+        /* Шапка состояния */
         .status-header { background: linear-gradient(180deg, #16365f 0%, #0D294D 100%); padding: 30px 20px; text-align: center; border-bottom: 1px solid rgba(57, 202, 185, 0.3); }
         .status-val { font-size: 32px; font-weight: 900; color: var(--accent); margin: 5px 0; }
-        .card { background: rgba(254,255,255,0.08); margin: 12px 16px; padding: 18px; border-radius: var(--radius); border: 1px solid rgba(254,255,255,0.1); }
+        
+        /* Карточки и элементы */
+        .card { background: rgba(254,255,255,0.08); margin: 12px 16px; padding: 18px; border-radius: var(--radius); border: 1px solid rgba(254,255,255,0.1); position: relative; }
+        .detail-row { display: flex; justify-content: space-between; margin-top: 12px; background: rgba(255,255,255,0.03); padding: 10px; border-radius: 12px; font-size: 13px; }
+        
+        /* Навигация */
         .nav-bar { position: fixed; bottom: 0; width: 100%; background: rgba(13,41,77,0.95); display: flex; padding: 12px 0 25px; border-top: 1px solid rgba(254,255,255,0.1); backdrop-filter: blur(15px); z-index: 1000; }
-        .nav-item { flex: 1; text-align: center; color: rgba(254,255,255,0.4); font-size: 11px; }
+        .nav-item { flex: 1; text-align: center; color: rgba(254,255,255,0.4); font-size: 11px; cursor: pointer; }
         .nav-item.active { color: var(--accent); }
-        .add-fab { position: fixed; bottom: 95px; right: 20px; width: 60px; height: 60px; background: var(--accent); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--dark); z-index: 999; }
-        .input-field { width: 100%; background: rgba(254,255,255,0.1); border: 1px solid rgba(255,255,255,0.1); padding: 14px; border-radius: 12px; color: white; margin-bottom: 12px; box-sizing: border-box; font-size: 16px; }
+        .nav-item i { margin-bottom: 4px; }
+
+        /* Кнопка добавить */
+        .add-fab { position: fixed; bottom: 95px; right: 20px; width: 60px; height: 60px; background: var(--accent); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--dark); z-index: 999; box-shadow: 0 4px 15px rgba(57, 202, 185, 0.4); }
+
+        /* Поля ввода и модалки */
+        .input-field { width: 100%; background: rgba(254,255,255,0.1); border: 1px solid rgba(255,255,255,0.1); padding: 14px; border-radius: 12px; color: white; margin-bottom: 12px; box-sizing: border-box; font-size: 16px; outline: none; }
+        .input-field:focus { border-color: var(--accent); }
         .modal-sheet { position: fixed; bottom: 0; width: 100%; background: var(--dark); border-radius: 30px 30px 0 0; padding: 25px; transform: translateY(100%); transition: 0.3s; z-index: 2000; box-sizing: border-box; border-top: 2px solid var(--accent); }
         .modal-sheet.active { transform: translateY(0); }
-        .btn-main { background: var(--accent); color: var(--dark); border: none; padding: 16px; border-radius: 16px; font-weight: 800; width: 100%; cursor: pointer; }
-        .currency-tag { font-size: 10px; padding: 2px 6px; border-radius: 6px; border: 1px solid; margin-left: 5px; }
-        .eur { color: var(--accent); border-color: var(--accent); } .pln { color: #FFD700; border-color: #FFD700; }
-        .detail-row { display: flex; justify-content: space-between; margin-top: 12px; background: rgba(255,255,255,0.03); padding: 10px; border-radius: 12px; font-size: 13px; }
+        .btn-main { background: var(--accent); color: var(--dark); border: none; padding: 16px; border-radius: 16px; font-weight: 800; width: 100%; cursor: pointer; font-size: 16px; }
+        
+        /* Валюты и теги */
+        .currency-tag { font-size: 10px; padding: 2px 6px; border-radius: 6px; border: 1px solid; margin-left: 5px; font-weight: bold; }
+        .eur { color: var(--accent); border-color: var(--accent); } 
+        .pln { color: #FFD700; border-color: #FFD700; }
+        
+        #overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); display: none; z-index: 1999; }
     </style>
 </head>
 <body>
@@ -32,10 +49,11 @@
 
     <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 16px 0;">
         <h1 id="pageTitle" style="margin:0; font-size: 24px;">Рейсы</h1>
-        <div id="filterIndicator" style="font-size: 12px; color: var(--accent);"></div>
+        <div id="filterIndicator" style="font-size: 12px; color: var(--accent); font-weight: bold;"></div>
     </div>
 
     <div id="app-content"></div>
+    
     <div class="add-fab" id="mainFab" onclick="openModal()"><i data-lucide="plus"></i></div>
 
     <nav class="nav-bar">
@@ -44,13 +62,18 @@
         <div class="nav-item" id="nav-settings" onclick="switchTab('settings', this)"><i data-lucide="settings"></i><div>Настройки</div></div>
     </nav>
 
-    <div id="overlay" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:none; z-index:1999;" onclick="closeModal()"></div>
+    <div id="overlay" onclick="closeModal()"></div>
     <div id="modal" class="modal-sheet"><div id="modalContent"></div></div>
 
 <script>
     const TG = window.Telegram.WebApp;
-    const SHEET_URL = "https://script.google.com/macros/s/AKfycbwa4lc1J9lI0uGH4VBNYCFKw1teIzOeWcjZITP50QmsegSfl9UgIWsJPIMpYeCIE8jxQA/exec"; // ВСТАВЬ ТУТ СВОЙ URL
-    let currentTab = 'cadences', dataCache = { cadences: [], expenses: [], categories: [] }, exchangeRate = 4.35, editId = null, selectedCadenceId = null;
+    const SHEET_URL = "https://script.google.com/macros/s/AKfycbxXJEqVgmgJy9PeQv6yJAFekLNWOG2HZkZIf8ZjWJCnWnziVmSpD4r_rQMv63ijVW-jdg/exec"; // ВСТАВЬ ТУТ СВОЙ URL В КАВЫЧКАХ
+    
+    let currentTab = 'cadences';
+    let dataCache = { cadences: [], expenses: [], categories: [] };
+    let exchangeRate = 4.35;
+    let editId = null;
+    let selectedCadenceId = null;
 
     function init() {
         TG.expand();
@@ -61,9 +84,11 @@
         try {
             const res = await fetch(`${SHEET_URL}?action=get_all`);
             dataCache = await res.json();
-            exchangeRate = dataCache.rate || 4.35;
+            exchangeRate = parseFloat(dataCache.rate) || 4.35;
             render();
-        } catch (e) { console.error(e); }
+        } catch (e) { 
+            console.error("Ошибка загрузки данных:", e);
+        }
         lucide.createIcons();
     }
 
@@ -77,7 +102,7 @@
             filterInd.innerHTML = "";
             renderCadences(cont);
         } else if (currentTab === 'expenses') {
-            filterInd.innerHTML = selectedCadenceId ? "Рейс <span onclick='clearFilter()' style='color:#ff4444'>[X]</span>" : "Весь период";
+            filterInd.innerHTML = selectedCadenceId ? "Рейс активен <span onclick='clearFilter()' style='color:#ff4444; margin-left:5px'>[X]</span>" : "Все расходы";
             renderExpenses(cont);
         } else {
             filterInd.innerHTML = "";
@@ -92,7 +117,7 @@
         const area = document.getElementById('status-area');
         if (active) {
             const left = Math.ceil((new Date(active.EndDate || active.end) - new Date()) / 86400000);
-            area.innerHTML = `<div style="font-size:12px; opacity:0.6">В РЕЙСЕ</div><div class="status-val">Домой через ${left} дн.</div>`;
+            area.innerHTML = `<div style="font-size:12px; opacity:0.6; letter-spacing: 1px;">В РЕЙСЕ</div><div class="status-val">Домой через ${left} дн.</div>`;
         } else {
             area.innerHTML = `<div style="font-size:40px">🌴</div><div class="status-val" style="color:#FFD700">ОТПУСК</div>`;
         }
@@ -106,22 +131,19 @@
             const end = c.EndDate || c.end;
             const days = Math.max(0, Math.ceil((new Date(end) - new Date(start)) / 86400000));
             
-            // Расчеты
             const forecast = days * 95;
             const relExp = dataCache.expenses.filter(ex => (ex.CadenceID || ex.cadenceId || "").toString() === id);
             const expSum = relExp.reduce((s, ex) => {
                 const amt = parseFloat(ex.Amount || 0);
                 return s + (ex.Currency === 'PLN' ? amt / exchangeRate : amt);
             }, 0);
-            
-            // Чистый доход теперь с точностью до 2 знаков
             const net = forecast - expSum;
 
             html += `
             <div class="card">
                 <div style="display:flex; justify-content:space-between; align-items: flex-start;">
                     <div>
-                        <div style="font-size:11px; opacity:0.5">${start} — ${end}</div>
+                        <div style="font-size:11px; opacity:0.5; font-weight: bold;">${start} — ${end}</div>
                         <div style="background:var(--accent); color:var(--dark); padding:2px 8px; border-radius:6px; display:inline-block; margin-top:5px; font-weight:800; font-size:12px;">${days} дн.</div>
                     </div>
                     <div style="text-align:right">
@@ -131,18 +153,18 @@
                 </div>
 
                 <div class="detail-row">
-                    <div><span style="opacity:0.5">Диета:</span> <b>${forecast.toFixed(2)}€</b></div>
+                    <div><span style="opacity:0.5">Предполагаемый доход:</span> <b>${forecast.toFixed(2)}€</b></div>
                     <div style="text-align:right"><span style="opacity:0.5">Траты:</span> <b style="color:#FFD700">-${expSum.toFixed(2)}€</b></div>
                 </div>
 
                 <div style="margin-top:12px; display:flex; gap:10px;">
-                    <button onclick="viewCadenceExpenses('${id}')" style="background:rgba(57,202,185,0.1); color:var(--accent); border:1px solid var(--accent); padding:8px; border-radius:10px; flex:1; font-weight:bold; font-size:12px;">Детали трат</button>
-                    <button onclick="editCadence('${id}')" style="background:none; border:none; color:white; opacity:0.3"><i data-lucide="edit-3" style="width:18px"></i></button>
-                    <button onclick="deleteRow('cadences', '${id}')" style="background:none; border:none; color:#ff4444; opacity:0.4"><i data-lucide="trash-2" style="width:18px"></i></button>
+                    <button onclick="viewCadenceExpenses('${id}')" style="background:rgba(57,202,185,0.1); color:var(--accent); border:1px solid var(--accent); padding:10px; border-radius:12px; flex:1; font-weight:bold; font-size:12px;">Детали рейса</button>
+                    <button onclick="editCadence('${id}')" style="background:none; border:none; color:white; opacity:0.3; padding: 5px;"><i data-lucide="edit-3" style="width:18px"></i></button>
+                    <button onclick="deleteRow('cadences', '${id}')" style="background:none; border:none; color:#ff4444; opacity:0.4; padding: 5px;"><i data-lucide="trash-2" style="width:18px"></i></button>
                 </div>
             </div>`;
         });
-        cont.innerHTML = html || '<p style="text-align:center; opacity:0.3; padding:40px">Нет данных</p>';
+        cont.innerHTML = html || '<p style="text-align:center; opacity:0.3; padding:40px">Нет добавленных рейсов</p>';
     }
 
     function renderExpenses(cont) {
@@ -158,14 +180,18 @@
         
         filtered.slice().reverse().forEach(ex => {
             const exId = (ex.ID || ex.id).toString();
-            listHtml += `<div class="card">
+            const commText = (ex.Comment || ex.comment) ? `<div style="font-size:11px; color:var(--accent); margin-top:4px; font-style:italic">"${ex.Comment || ex.comment}"</div>` : '';
+            
+            listHtml += `
+            <div class="card">
                 <div style="display:flex; justify-content:space-between; align-items:center">
-                    <div>
+                    <div style="flex:1">
                         <b>${ex.Category}</b><br>
                         <small style="opacity:0.5">${ex.Date}</small>
+                        ${commText}
                     </div>
                     <div style="text-align:right">
-                        <b>${ex.Amount}</b> <span class="currency-tag ${ex.Currency.toLowerCase()}">${ex.Currency}</span>
+                        <b>${parseFloat(ex.Amount).toFixed(2)}</b> <span class="currency-tag ${ex.Currency.toLowerCase()}">${ex.Currency}</span>
                         <div style="margin-top:8px">
                             <button onclick="editExpense('${exId}')" style="background:none; border:none; color:white; opacity:0.2; padding:5px"><i data-lucide="edit-3" style="width:14px"></i></button>
                             <button onclick="deleteRow('expenses', '${exId}')" style="background:none; border:none; color:#ff4444; opacity:0.3; padding:5px"><i data-lucide="trash-2" style="width:14px"></i></button>
@@ -181,7 +207,7 @@
                 type: 'doughnut',
                 data: {
                     labels: Object.keys(catTotals),
-                    datasets: [{ data: Object.values(catTotals), backgroundColor: ['#39CAB9', '#FFD700', '#FF4444', '#9C27B0', '#2196F3'], borderWidth: 0 }]
+                    datasets: [{ data: Object.values(catTotals), backgroundColor: ['#39CAB9', '#FFD700', '#FF4444', '#9C27B0', '#2196F3', '#FF9800'], borderWidth: 0 }]
                 },
                 options: { plugins: { legend: { position: 'right', labels: { color: '#fff', font: {size: 10} } } } }
             });
@@ -190,78 +216,145 @@
 
     function renderSettings(cont) {
         let catHtml = dataCache.categories.map(c => `
-            <div style="display:flex; justify-content:space-between; align-items:center; padding:10px 0; border-bottom:1px solid rgba(255,255,255,0.05)">
+            <div style="display:flex; justify-content:space-between; align-items:center; padding:12px 0; border-bottom:1px solid rgba(255,255,255,0.05)">
                 <span>${c.Name}</span>
-                <button onclick="deleteRow('categories', '${c.Name}')" style="background:none; border:none; color:#ff4444; font-size:12px">Удалить</button>
+                <button onclick="deleteRow('categories', '${c.Name}')" style="background:none; border:none; color:#ff4444; font-size:12px; font-weight:bold">Удалить</button>
             </div>
         `).join('');
 
         cont.innerHTML = `
             <div class="card">
-                <h3 style="margin-top:0">Курс: 1 EUR = <input type="number" id="manualRate" value="${exchangeRate}" step="0.01" style="width:60px; background:none; border:1px solid var(--accent); color:white; border-radius:5px; padding:5px"> PLN</h3>
-                <button class="btn-main" onclick="updateRate()" style="padding:10px; font-size:14px">Сохранить курс</button>
+                <h3 style="margin-top:0; font-size:16px;">Курс обмена</h3>
+                <div style="display:flex; align-items:center; gap:10px; margin-bottom:15px">
+                    <span style="opacity:0.7">1 EUR = </span>
+                    <input type="number" id="manualRate" value="${exchangeRate}" step="0.001" class="input-field" style="margin:0; width:120px; padding:10px;">
+                    <span style="opacity:0.7"> PLN</span>
+                </div>
+                <button class="btn-main" onclick="updateRate()" style="padding:12px; font-size:14px">Сохранить курс</button>
             </div>
             <div class="card">
-                <h3 style="margin-top:0">Категории</h3>
-                <div style="margin-bottom:15px">${catHtml}</div>
+                <h3 style="margin-top:0; font-size:16px;">Категории расходов</h3>
+                <div style="margin-bottom:15px; max-height: 200px; overflow-y: auto;">${catHtml}</div>
                 <div style="display:flex; gap:10px">
-                    <input type="text" id="newCatName" class="input-field" placeholder="Новая..." style="margin:0">
-                    <button onclick="addCategory()" style="padding:0 20px; background:var(--accent); border:none; border-radius:12px; color:var(--dark); font-weight:bold">+</button>
+                    <input type="text" id="newCatName" class="input-field" placeholder="Название..." style="margin:0">
+                    <button onclick="addCategory()" style="padding:0 20px; background:var(--accent); border:none; border-radius:12px; color:var(--dark); font-weight:bold; font-size:20px;">+</button>
                 </div>
             </div>`;
     }
 
-    // --- Функции управления ---
     function openModal() {
         document.getElementById('overlay').style.display = 'block';
         const content = document.getElementById('modalContent');
+        
         if (currentTab === 'cadences') {
             const c = editId ? dataCache.cadences.find(i => (i.ID || i.id) == editId) : null;
-            content.innerHTML = `<h3>${editId ? 'Редактировать' : 'Новый'} рейс</h3>
+            content.innerHTML = `
+                <h3 style="margin-top:0">${editId ? 'Редактировать' : 'Новый'} рейс</h3>
+                <label style="font-size:12px; opacity:0.5; margin-bottom:4px; display:block">Дата начала</label>
                 <input type="date" id="dStart" class="input-field" value="${c ? (c.StartDate || c.start) : ''}">
+                <label style="font-size:12px; opacity:0.5; margin-bottom:4px; display:block">Дата конца</label>
                 <input type="date" id="dEnd" class="input-field" value="${c ? (c.EndDate || c.end) : ''}">
                 <button class="btn-main" onclick="saveCadence()">Сохранить</button>`;
         } else {
             const e = editId ? dataCache.expenses.find(i => (i.ID||i.id) == editId) : null;
-            let catOptions = dataCache.categories.map(c => `<option ${e && e.Category==c.Name?'selected':''}>${c.Name}</option>`).join('');
-            content.innerHTML = `<h3>${editId ? 'Редактировать' : 'Новый'} расход</h3>
-                <input type="date" id="exDate" class="input-field" value="${e?e.Date:''}">
-                <input type="number" id="exAmt" class="input-field" placeholder="Сумма" value="${e?e.Amount:''}">
-                <select id="exCurr" class="input-field"><option value="EUR" ${e && e.Currency=='EUR'?'selected':''}>EUR</option><option value="PLN" ${e && e.Currency=='PLN'?'selected':''}>PLN</option></select>
+            let catOptions = dataCache.categories.map(c => `<option ${e && (e.Category||e.category)==c.Name ? 'selected' : ''}>${c.Name}</option>`).join('');
+            
+            content.innerHTML = `
+                <h3 style="margin-top:0">${editId ? 'Изменить' : 'Новый'} расход</h3>
+                <input type="date" id="exDate" class="input-field" value="${e ? e.Date : new Date().toISOString().split('T')[0]}">
+                <div style="display:flex; gap:10px">
+                    <input type="number" id="exAmt" class="input-field" placeholder="Сумма" value="${e ? e.Amount : ''}" inputmode="decimal" style="flex:2">
+                    <select id="exCurr" class="input-field" style="flex:1">
+                        <option value="EUR" ${e && e.Currency=='EUR' ? 'selected' : ''}>EUR</option>
+                        <option value="PLN" ${e && e.Currency=='PLN' ? 'selected' : ''}>PLN</option>
+                    </select>
+                </div>
                 <select id="exCat" class="input-field">${catOptions}</select>
+                <input type="text" id="exComm" class="input-field" placeholder="Комментарий (необязательно)" value="${e ? (e.Comment || e.comment || '') : ''}">
                 <button class="btn-main" onclick="saveExpense()">Сохранить</button>`;
         }
         document.getElementById('modal').classList.add('active');
     }
 
-    async function sendData(p) { closeModal(); await fetch(SHEET_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(p) }); loadData(); }
+    async function sendData(p) { 
+        closeModal(); 
+        TG.MainButton.showProgress();
+        try {
+            await fetch(SHEET_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify(p) }); 
+            loadData();
+        } catch(e) {
+            alert("Ошибка сохранения");
+        }
+        TG.MainButton.hideProgress();
+    }
     
     function editCadence(id) { editId = id; openModal(); }
     function editExpense(id) { editId = id; openModal(); }
     
-    function saveCadence() { sendData({ action: editId ? 'editCadence' : 'addCadence', id: editId, start: document.getElementById('dStart').value, end: document.getElementById('dEnd').value }); }
-    function saveExpense() { sendData({ action: editId ? 'editExpense' : 'addExpense', id: editId, date: document.getElementById('exDate').value, amount: document.getElementById('exAmt').value, currency: document.getElementById('exCurr').value, category: document.getElementById('exCat').value, cadenceId: selectedCadenceId }); }
-    
-    async function updateRate() { await sendData({ action: 'updateRate', rate: parseFloat(document.getElementById('manualRate').value) }); }
-    async function addCategory() { const n = document.getElementById('newCatName').value; if(n) await sendData({ action: 'addCategory', name: n }); }
+    function saveCadence() { 
+        const s = document.getElementById('dStart').value;
+        const e = document.getElementById('dEnd').value;
+        if(!s || !e) return alert("Заполни даты");
+        sendData({ action: editId ? 'editCadence' : 'addCadence', id: editId, start: s, end: e }); 
+    }
 
-    function viewCadenceExpenses(id) { selectedCadenceId = id.toString(); switchTab('expenses', document.getElementById('nav-expenses')); }
-    function clearFilter() { selectedCadenceId = null; render(); }
+    function saveExpense() { 
+        const amt = document.getElementById('exAmt').value;
+        if(!amt) return alert("Введи сумму");
+        sendData({ 
+            action: editId ? 'editExpense' : 'addExpense', 
+            id: editId, 
+            date: document.getElementById('exDate').value, 
+            amount: amt, 
+            currency: document.getElementById('exCurr').value, 
+            category: document.getElementById('exCat').value, 
+            cadenceId: selectedCadenceId,
+            comment: document.getElementById('exComm').value 
+        }); 
+    }
+    
+    async function updateRate() { 
+        const r = parseFloat(document.getElementById('manualRate').value);
+        if(r > 0) await sendData({ action: 'updateRate', rate: r }); 
+    }
+
+    async function addCategory() { 
+        const n = document.getElementById('newCatName').value; 
+        if(n) await sendData({ action: 'addCategory', name: n }); 
+    }
+
+    function viewCadenceExpenses(id) { 
+        selectedCadenceId = id.toString(); 
+        switchTab('expenses', document.getElementById('nav-expenses')); 
+    }
+
+    function clearFilter() { 
+        selectedCadenceId = null; 
+        render(); 
+    }
 
     function switchTab(tab, el) { 
-        currentTab = tab; editId = null; 
-        document.getElementById('pageTitle').textContent = tab==='cadences'?'Рейсы':tab==='expenses'?'Бюджет':'Настройки';
+        currentTab = tab; 
+        editId = null; 
+        document.getElementById('pageTitle').textContent = tab==='cadences' ? 'Рейсы' : tab==='expenses' ? 'Бюджет' : 'Настройки';
         document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
         el.classList.add('active');
         render();
     }
 
-    function closeModal() { document.getElementById('modal').classList.remove('active'); document.getElementById('overlay').style.display = 'none'; editId = null; }
-    async function deleteRow(tab, id) { if(confirm('Удалить?')) { await fetch(SHEET_URL, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ action: 'delete', tab, id }) }); loadData(); } }
+    function closeModal() { 
+        document.getElementById('modal').classList.remove('active'); 
+        document.getElementById('overlay').style.display = 'none'; 
+        editId = null; 
+    }
+
+    async function deleteRow(tab, id) { 
+        if(confirm('Вы уверены, что хотите удалить эту запись?')) { 
+            await sendData({ action: 'delete', tab, id }); 
+        } 
+    }
     
     init();
 </script>
 </body>
 </html>
-
-
