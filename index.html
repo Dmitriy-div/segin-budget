@@ -131,7 +131,7 @@
             const end = c.EndDate || c.end;
             const days = Math.max(0, Math.ceil((new Date(end) - new Date(start)) / 86400000));
             
-            const forecast = days * 95;
+            const forecast = days * 105;
             const relExp = dataCache.expenses.filter(ex => (ex.CadenceID || ex.cadenceId || "").toString() === id);
             const expSum = relExp.reduce((s, ex) => {
                 const amt = parseFloat(ex.Amount || 0);
